@@ -25,7 +25,7 @@ export const TerminalOutput = ({ isRunning }) => {
   useEffect(() => {
     if (isRunning) {
       setLines([]);
-      addLine('system', `=== Starting Tiny Core Linux Emulation ===`);
+      addLine('system', "=== Starting Tiny Core Linux Emulation ===");
       const bootMessages = [
         "GRUB loading...",
         "Loading Linux kernel...",
