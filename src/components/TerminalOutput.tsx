@@ -2,34 +2,19 @@ import { useEffect, useState, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
-interface TerminalLine {
-  timestamp: string;
-  level: 'info' | 'warn' | 'error' | 'success' | 'system';
-  message: string;
-}
+export const TerminalOutput = ({ isRunning }) => {
+  const [lines, setLines] = useState([]);
+  const scrollRef = useRef(null);
+  const intervalRef = useRef();
 
-interface TerminalOutputProps {
-  isRunning: boolean;
-  selectedOS?: string;
-  onLog?: (line: TerminalLine) => void;
-}
-
-export const TerminalOutput = ({ isRunning, selectedOS, onLog }: TerminalOutputProps) => {
-  const [lines, setLines] = useState<TerminalLine[]>([]);
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const intervalRef = useRef<NodeJS.Timeout>();
-
-  const addLine = (level: TerminalLine['level'], message: string) => {
-    const newLine: TerminalLine = {
+  const addLine = (level, message) => {
+    const newLine = {
       timestamp: new Date().toLocaleTimeString(),
       level,
-      message
+      message,
     };
-    
     setLines(prev => [...prev, newLine]);
-    onLog?.(newLine);
-    
-    // Auto-scroll to bottom
+
     setTimeout(() => {
       if (scrollRef.current) {
         scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -37,91 +22,69 @@ export const TerminalOutput = ({ isRunning, selectedOS, onLog }: TerminalOutputP
     }, 100);
   };
 
-  const getLinuxBootSequence = () => [
-    "GRUB loading...",
-    "Loading Linux kernel...",
-    "Initializing hardware...",
-    "Starting kernel modules",
-    "Mounting file systems",
-    "Starting system services",
-    "NetworkManager starting",
-    "Loading desktop environment",
-    "System ready - Welcome to " + selectedOS + "!",
-    "user@localhost:~$ "
-  ];
-
-  const getRandomSystemMessages = () => [
-    "CPU temperature: 45°C",
-    "Memory usage: 2.1GB / 8GB",
-    "Disk I/O: 15MB/s read, 8MB/s write",
-    "Network: eth0 connected (192.168.1.100)",
-    "Process started: systemd (PID: 1)",
-    "Audio device initialized: HDA Intel",
-    "USB device connected: Generic Mouse",
-    "Firewall: 3 rules loaded",
-    "Cron daemon started",
-    "SSH server listening on port 22"
-  ];
-
   useEffect(() => {
-    if (isRunning && selectedOS) {
+    if (isRunning) {
       setLines([]);
-      addLine('system', `=== Starting ${selectedOS} Emulation ===`);
-      
-      // Boot sequence
-      const bootMessages = getLinuxBootSequence();
+      addLine('system', `=== Starting Tiny Core Linux Emulation ===`);
+      const bootMessages = [
+        "GRUB loading...",
+        "Loading Linux kernel...",
+        "Initializing hardware...",
+        "Starting kernel modules",
+        "Mounting file systems",
+        "Starting system services",
+        "Loading desktop environment",
+        "System ready - Welcome to Tiny Core Linux!",
+        "tc@box:~$ "
+      ];
       bootMessages.forEach((message, index) => {
         setTimeout(() => {
           addLine(index === bootMessages.length - 1 ? 'success' : 'info', message);
         }, index * 800);
       });
 
-      // Random system activity
       intervalRef.current = setInterval(() => {
-        const messages = getRandomSystemMessages();
-        const randomMessage = messages[Math.floor(Math.random() * messages.length)];
-        addLine('system', randomMessage);
-        
-        // Occasionally add user commands
+        const sysMessages = [
+          "CPU temperature: 40°C",
+          "Memory usage: 50MB / 128MB",
+          "Disk I/O: 2MB/s read, 1MB/s write",
+          "Network: eth0 connected",
+          "Process started: Xorg",
+          "Audio device initialized",
+          "USB device connected: Mouse",
+          "Firewall: active",
+          "Cron daemon started",
+          "SSH server listening on port 22"
+        ];
+        const msg = sysMessages[Math.floor(Math.random() * sysMessages.length)];
+        addLine('system', msg);
         if (Math.random() > 0.7) {
-          const commands = ['ls -la', 'ps aux | grep systemd', 'df -h', 'free -m', 'uname -a'];
+          const commands = ['ls', 'df -h', 'free -m', 'uname -a'];
           const cmd = commands[Math.floor(Math.random() * commands.length)];
           setTimeout(() => {
-            addLine('info', `user@localhost:~$ ${cmd}`);
+            addLine('info', `tc@box:~$ ${cmd}`);
           }, 1000);
         }
       }, 3000);
-    } else {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
+
+      return () => {
+        if (intervalRef.current) clearInterval(intervalRef.current);
+      };
     }
+  }, [isRunning]);
 
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
-    };
-  }, [isRunning, selectedOS]);
-
-  const getLevelColor = (level: TerminalLine['level']) => {
+  const getLevelColor = (level) => {
     switch (level) {
-      case 'error': return 'text-red-400';
-      case 'warn': return 'text-yellow-400';
-      case 'success': return 'text-terminal-foreground';
-      case 'system': return 'text-electric';
-      default: return 'text-gray-300';
+      case 'success': return "text-green-500";
+      case 'info': return "text-blue-500";
+      case 'system': return "text-yellow-500";
+      case 'error': return "text-red-500";
+      default: return "";
     }
   };
 
   return (
-    <Card className="h-80 bg-terminal border-2 border-border">
-      <div className="p-4 border-b border-border">
-        <h3 className="text-sm font-semibold text-foreground flex items-center">
-          <div className="w-2 h-2 bg-terminal-foreground rounded-full mr-2 animate-pulse" />
-          System Console
-        </h3>
-      </div>
+    <Card>
       <ScrollArea className="h-64 p-4" ref={scrollRef}>
         <div className="font-mono text-sm space-y-1">
           {lines.length === 0 && (
