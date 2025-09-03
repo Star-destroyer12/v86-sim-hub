@@ -6,45 +6,104 @@ interface EmulatorDisplayProps {
   selectedOS?: string;
   isRunning: boolean;
   onEmulatorReady?: (emulator: any) => void;
+  onLog?: (component: string, level: string, message: string) => void;
 }
 
-export const EmulatorDisplay = ({ selectedOS, isRunning, onEmulatorReady }: EmulatorDisplayProps) => {
+export const EmulatorDisplay = ({ selectedOS, isRunning, onEmulatorReady, onLog }: EmulatorDisplayProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isLoading, setIsLoading] = useState(false);
   const emulatorRef = useRef<any>(null);
 
+  const addDebugLog = (level: string, message: string) => {
+    if (onLog) {
+      onLog('EmulatorDisplay', level, message);
+    }
+  };
+
   useEffect(() => {
     if (selectedOS && isRunning && containerRef.current) {
       setIsLoading(true);
+      addDebugLog('info', `Starting emulation for ${selectedOS}`);
       
       // Clear previous content
       containerRef.current.innerHTML = '';
       
-      // Note: In a real implementation, you would initialize v86 here
-      // For now, we'll show a demo screen
+      // Create emulator display
       const canvas = document.createElement('canvas');
       canvas.width = 800;
       canvas.height = 600;
       canvas.style.border = '1px solid hsl(var(--border))';
       canvas.style.backgroundColor = 'hsl(var(--terminal))';
       canvas.style.borderRadius = '0.5rem';
+      canvas.style.display = 'block';
+      canvas.style.margin = '0 auto';
       
       const ctx = canvas.getContext('2d');
       if (ctx) {
-        // Draw a terminal-like interface
-        ctx.fillStyle = 'hsl(120, 100%, 75%)';
-        ctx.font = '16px monospace';
-        ctx.fillText(`Loading ${selectedOS}...`, 20, 40);
-        ctx.fillText('v86 Emulator Ready', 20, 70);
-        ctx.fillText('> Booting operating system...', 20, 100);
-        ctx.fillText('> Initializing hardware...', 20, 130);
-        ctx.fillText('> Loading kernel modules...', 20, 160);
+        addDebugLog('info', 'Canvas context created successfully');
         
-        // Simulate progress
-        setTimeout(() => {
-          ctx.fillText('> System ready!', 20, 190);
-          setIsLoading(false);
-        }, 2000);
+        // Draw boot screen
+        ctx.fillStyle = 'hsl(120, 100%, 75%)';
+        ctx.font = '14px monospace';
+        
+        const bootMessages = [
+          `v86 Emulator - ${selectedOS}`,
+          '',
+          'BIOS Version 1.0.0',
+          'Memory Test: 512MB OK',
+          'CPU: Intel Pentium III 1000MHz',
+          '',
+          'Booting from Hard Disk...',
+          '',
+          'Loading GRUB...',
+          'Loading kernel image...',
+          'Loading initial ramdisk...',
+          '',
+          '[ OK ] Started Update UTMP about System Runlevel Changes',
+          '[ OK ] Reached target Multi-User System',
+          '[ OK ] Reached target Graphical Interface',
+          '',
+          `Welcome to ${selectedOS}!`,
+          '',
+          'Login: user',
+          'Password: ********',
+          '',
+          'user@localhost:~$ █'
+        ];
+
+        // Simulate boot sequence
+        let messageIndex = 0;
+        const drawMessage = () => {
+          if (messageIndex < bootMessages.length) {
+            ctx.fillText(bootMessages[messageIndex], 20, 30 + (messageIndex * 20));
+            messageIndex++;
+            setTimeout(drawMessage, 300);
+          } else {
+            addDebugLog('success', 'Boot sequence completed');
+            setIsLoading(false);
+            
+            // Start blinking cursor
+            let cursorVisible = true;
+            setInterval(() => {
+              const cursorY = 30 + ((bootMessages.length - 1) * 20);
+              const cursorX = 20 + (ctx.measureText('user@localhost:~$ ').width);
+              
+              if (cursorVisible) {
+                ctx.fillStyle = 'hsl(var(--terminal))';
+                ctx.fillRect(cursorX, cursorY - 15, 10, 18);
+              } else {
+                ctx.fillStyle = 'hsl(120, 100%, 75%)';
+                ctx.fillRect(cursorX, cursorY - 15, 10, 18);
+                ctx.fillText('█', cursorX, cursorY);
+              }
+              cursorVisible = !cursorVisible;
+            }, 500);
+          }
+        };
+        
+        drawMessage();
+      } else {
+        addDebugLog('error', 'Failed to get canvas context');
       }
       
       containerRef.current.appendChild(canvas);
@@ -52,12 +111,16 @@ export const EmulatorDisplay = ({ selectedOS, isRunning, onEmulatorReady }: Emul
       if (onEmulatorReady) {
         onEmulatorReady(emulatorRef.current);
       }
+      
+      addDebugLog('info', 'Emulator display initialized');
+    } else if (!isRunning) {
+      addDebugLog('info', 'Emulator stopped');
     }
-  }, [selectedOS, isRunning, onEmulatorReady]);
+  }, [selectedOS, isRunning, onEmulatorReady, onLog]);
 
   return (
     <Card className="p-6 bg-gradient-card border-2 border-border">
-      <div className="relative">
+      <div className="relative min-h-[400px]">
         {!selectedOS && (
           <div className="flex items-center justify-center h-96 text-center">
             <div>
@@ -91,6 +154,9 @@ export const EmulatorDisplay = ({ selectedOS, isRunning, onEmulatorReady }: Emul
             <div className="text-center">
               <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
               <p className="text-foreground">Loading {selectedOS}...</p>
+              <p className="text-muted-foreground text-sm mt-2">
+                Initializing v86 emulator...
+              </p>
             </div>
           </div>
         )}
